@@ -13,15 +13,29 @@ if "data" not in st.session_state:
         "Peso Nacimiento",
         "Peso 1DDV", "Δ g 1DDV", "% 1DDV",
         "Peso 2DDV", "Δ g 2DDV", "% 2DDV",
-        "Peso 3DDV", "Δ g 3DDV", "% 3DDV"
+        "Peso 3DDV", "Δ g 3DDV", "% 3DDV",
+        "ALERTA"
     ])
 
 # Función cálculo
 
 def calcular(df):
     for i in [1, 2, 3]:
-        df[f"Δ g {i}DDV"] = df["Peso Nacimiento"] - df[f"Peso {i}DDV"]
+        df[f"Δ g {i}DDV"] = (df["Peso Nacimiento"] - df[f"Peso {i}DDV"]).astype(int)
         df[f"% {i}DDV"] = ((df[f"Δ g {i}DDV"] / df["Peso Nacimiento"]) * 100).round(1)
+
+    # ALERTA clínica
+    condiciones = []
+    for i in df.index:
+        if df.loc[i, "% 3DDV"] > 10 or df.loc[i, "% 2DDV"] > 10:
+            condiciones.append("🔴 Alto")
+        elif df.loc[i, "% 1DDV"] > 5:
+            condiciones.append("🟡 Moderado")
+        else:
+            condiciones.append("🟢 Normal")
+
+    df["ALERTA"] = condiciones
+
     return df
 
 # Ingreso de datos
@@ -30,28 +44,28 @@ with st.form("form"):
 
     with col1:
         sala = st.text_input("Sala")
-        pn = st.number_input("Peso Nacimiento (g)", min_value=0.0)
+        pn = st.number_input("Peso Nacimiento (g)", min_value=0, step=1, format="%d")
 
     with col2:
-        d1 = st.number_input("Peso 1DDV (g)", min_value=0.0)
-        d2 = st.number_input("Peso 2DDV (g)", min_value=0.0)
-        d3 = st.number_input("Peso 3DDV (g)", min_value=0.0)
+        d1 = st.number_input("Peso 1DDV (g)", min_value=0, step=1, format="%d")
+        d2 = st.number_input("Peso 2DDV (g)", min_value=0, step=1, format="%d")
+        d3 = st.number_input("Peso 3DDV (g)", min_value=0, step=1, format="%d")
 
     submit = st.form_submit_button("➕ Agregar Registro")
 
     if submit:
-        new = pd.DataFrame([[sala, pn, d1, 0, 0, d2, 0, 0, d3, 0, 0]], columns=st.session_state.data.columns)
+        new = pd.DataFrame([[sala, int(pn), int(d1), 0, 0, int(d2), 0, 0, int(d3), 0, 0, ""]], columns=st.session_state.data.columns)
         st.session_state.data = pd.concat([st.session_state.data, new], ignore_index=True)
         st.session_state.data = calcular(st.session_state.data)
 
-# Estilo clínico SOLO en celdas específicas
+# Estilo SOLO en celdas críticas
 
 def highlight_cells(df):
     styles = pd.DataFrame('', index=df.index, columns=df.columns)
 
     for i in df.index:
         if df.loc[i, "% 1DDV"] > 5:
-            styles.loc[i, "% 1DDV"] = 'background-color: #ff9999'
+            styles.loc[i, "% 1DDV"] = 'background-color: #ffe066'
         if df.loc[i, "% 2DDV"] > 10:
             styles.loc[i, "% 2DDV"] = 'background-color: #ff4d4d'
         if df.loc[i, "% 3DDV"] > 10:
@@ -59,19 +73,29 @@ def highlight_cells(df):
 
     return styles
 
-# Mostrar tabla
+# Mostrar tabla compacta
 if not st.session_state.data.empty:
     st.subheader("📋 Tabla Clínica")
 
     df_original = st.session_state.data.copy()
     df_display = df_original.copy()
 
-    # Formato porcentaje visual SOLO para mostrar
+    # Formato porcentaje visual
     for col in ["% 1DDV", "% 2DDV", "% 3DDV"]:
         df_display[col] = df_display[col].astype(str) + " %"
 
-    # Aplicar estilos usando valores numéricos reales
-    st.dataframe(df_display.style.apply(lambda _: highlight_cells(df_original), axis=None), use_container_width=True)
+    st.dataframe(
+        df_display.style
+        .set_properties(**{'font-size': '12px'})
+        .apply(lambda _: highlight_cells(df_original), axis=None),
+        use_container_width=True
+    )
+
+    # 📊 Gráfico de pérdidas
+    st.subheader("📊 Evolución de pérdida de peso (%)")
+
+    df_chart = df_original[["% 1DDV", "% 2DDV", "% 3DDV"]]
+    st.line_chart(df_chart)
 
 # Filtros
 st.subheader("🔎 Filtrar por sala")
