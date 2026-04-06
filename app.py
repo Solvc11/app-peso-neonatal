@@ -62,13 +62,16 @@ def highlight_cells(df):
 # Mostrar tabla
 if not st.session_state.data.empty:
     st.subheader("📋 Tabla Clínica")
-    df = st.session_state.data.copy()
 
-    # Formato porcentaje visual
+    df_original = st.session_state.data.copy()
+    df_display = df_original.copy()
+
+    # Formato porcentaje visual SOLO para mostrar
     for col in ["% 1DDV", "% 2DDV", "% 3DDV"]:
-        df[col] = df[col].astype(str) + " %"
+        df_display[col] = df_display[col].astype(str) + " %"
 
-    st.dataframe(df.style.apply(highlight_cells, axis=None), use_container_width=True)
+    # Aplicar estilos usando valores numéricos reales
+    st.dataframe(df_display.style.apply(lambda _: highlight_cells(df_original), axis=None), use_container_width=True)
 
 # Filtros
 st.subheader("🔎 Filtrar por sala")
