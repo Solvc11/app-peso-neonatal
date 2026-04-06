@@ -21,7 +21,7 @@ if "data" not in st.session_state:
 def calcular(df):
     for i in [1, 2, 3]:
         df[f"Δ g {i}DDV"] = df["Peso Nacimiento"] - df[f"Peso {i}DDV"]
-        df[f"% {i}DDV"] = (df[f"Δ g {i}DDV"] / df["Peso Nacimiento"]) * 100
+        df[f"% {i}DDV"] = ((df[f"Δ g {i}DDV"] / df["Peso Nacimiento"]) * 100).round(1)
     return df
 
 # Ingreso de datos
@@ -44,25 +44,31 @@ with st.form("form"):
         st.session_state.data = pd.concat([st.session_state.data, new], ignore_index=True)
         st.session_state.data = calcular(st.session_state.data)
 
-# Colores clínicos
+# Estilo clínico SOLO en celdas específicas
 
-def color_filas(row):
-    estilos = [''] * len(row)
+def highlight_cells(df):
+    styles = pd.DataFrame('', index=df.index, columns=df.columns)
 
-    if row["% 1DDV"] > 5:
-        estilos = ['background-color: #ff4d4d'] * len(row)
-    if row["% 2DDV"] > 10:
-        estilos = ['background-color: #ff4d4d'] * len(row)
-    if row["% 3DDV"] > 10:
-        estilos = ['background-color: #b30000'] * len(row)
+    for i in df.index:
+        if df.loc[i, "% 1DDV"] > 5:
+            styles.loc[i, "% 1DDV"] = 'background-color: #ff9999'
+        if df.loc[i, "% 2DDV"] > 10:
+            styles.loc[i, "% 2DDV"] = 'background-color: #ff4d4d'
+        if df.loc[i, "% 3DDV"] > 10:
+            styles.loc[i, "% 3DDV"] = 'background-color: #b30000'
 
-    return estilos
+    return styles
 
 # Mostrar tabla
 if not st.session_state.data.empty:
     st.subheader("📋 Tabla Clínica")
-    df = st.session_state.data
-    st.dataframe(df.style.apply(color_filas, axis=1), use_container_width=True)
+    df = st.session_state.data.copy()
+
+    # Formato porcentaje visual
+    for col in ["% 1DDV", "% 2DDV", "% 3DDV"]:
+        df[col] = df[col].astype(str) + " %"
+
+    st.dataframe(df.style.apply(highlight_cells, axis=None), use_container_width=True)
 
 # Filtros
 st.subheader("🔎 Filtrar por sala")
