@@ -9,20 +9,19 @@ st.title("🩺 App Clínica - Control de Peso Neonatal")
 # Inicializar datos
 if "data" not in st.session_state:
     st.session_state.data = pd.DataFrame(columns=[
-        "Sala", "Paciente", "Peso Nacimiento", 
-        "Día 1", "Día 2", "Día 3",
-        "Δ g Día 1", "Δ g Día 2", "Δ g Día 3",
-        "% Día 1", "% Día 2", "% Día 3", "% Total"
+        "Sala",
+        "Peso Nacimiento",
+        "Peso 1DDV", "Δ g 1DDV", "% 1DDV",
+        "Peso 2DDV", "Δ g 2DDV", "% 2DDV",
+        "Peso 3DDV", "Δ g 3DDV", "% 3DDV"
     ])
 
 # Función cálculo
 
 def calcular(df):
     for i in [1, 2, 3]:
-        df[f"Δ g Día {i}"] = df["Peso Nacimiento"] - df[f"Día {i}"]
-        df[f"% Día {i}"] = (df[f"Δ g Día {i}"] / df["Peso Nacimiento"]) * 100
-
-    df["% Total"] = ((df["Peso Nacimiento"] - df[["Día 1","Día 2","Día 3"]].min(axis=1)) / df["Peso Nacimiento"]) * 100
+        df[f"Δ g {i}DDV"] = df["Peso Nacimiento"] - df[f"Peso {i}DDV"]
+        df[f"% {i}DDV"] = (df[f"Δ g {i}DDV"] / df["Peso Nacimiento"]) * 100
     return df
 
 # Ingreso de datos
@@ -31,18 +30,17 @@ with st.form("form"):
 
     with col1:
         sala = st.text_input("Sala")
-        paciente = st.text_input("Paciente")
         pn = st.number_input("Peso Nacimiento (g)", min_value=0.0)
 
     with col2:
-        d1 = st.number_input("Peso Día 1 (g)", min_value=0.0)
-        d2 = st.number_input("Peso Día 2 (g)", min_value=0.0)
-        d3 = st.number_input("Peso Día 3 (g)", min_value=0.0)
+        d1 = st.number_input("Peso 1DDV (g)", min_value=0.0)
+        d2 = st.number_input("Peso 2DDV (g)", min_value=0.0)
+        d3 = st.number_input("Peso 3DDV (g)", min_value=0.0)
 
-    submit = st.form_submit_button("➕ Agregar Paciente")
+    submit = st.form_submit_button("➕ Agregar Registro")
 
     if submit:
-        new = pd.DataFrame([[sala, paciente, pn, d1, d2, d3, 0, 0, 0, 0, 0, 0, 0]], columns=st.session_state.data.columns)
+        new = pd.DataFrame([[sala, pn, d1, 0, 0, d2, 0, 0, d3, 0, 0]], columns=st.session_state.data.columns)
         st.session_state.data = pd.concat([st.session_state.data, new], ignore_index=True)
         st.session_state.data = calcular(st.session_state.data)
 
@@ -51,11 +49,11 @@ with st.form("form"):
 def color_filas(row):
     estilos = [''] * len(row)
 
-    if row["% Día 1"] > 5:
+    if row["% 1DDV"] > 5:
         estilos = ['background-color: #ff4d4d'] * len(row)
-    if row["% Día 2"] > 10:
+    if row["% 2DDV"] > 10:
         estilos = ['background-color: #ff4d4d'] * len(row)
-    if row["% Total"] > 10:
+    if row["% 3DDV"] > 10:
         estilos = ['background-color: #b30000'] * len(row)
 
     return estilos
@@ -83,17 +81,15 @@ if not st.session_state.data.empty:
 st.subheader("🖨️ Selección para imprimir")
 
 if not st.session_state.data.empty:
-    filas = st.multiselect("Seleccionar pacientes", st.session_state.data.index)
+    filas = st.multiselect("Seleccionar registros", st.session_state.data.index)
 
     if filas:
         df_sel = st.session_state.data.loc[filas]
         st.write(df_sel)
 
-        # Exportar CSV
         csv = df_sel.to_csv(index=False).encode('utf-8')
         st.download_button("⬇️ Descargar CSV", csv, "reporte_neonatal.csv", "text/csv")
 
-        # Exportar HTML imprimible
         html = df_sel.to_html(index=False)
         st.download_button("🖨️ Descargar para imprimir (HTML)", html, "reporte.html", "text/html")
 
